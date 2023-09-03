@@ -1,0 +1,192 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Parameters:
+  CacheNodeType:
+    Description: The instance type the nodes will launch under.
+    Type: String
+    Default: cache.t2.micro
+    AllowedValues:
+      - cache.t2.micro
+      - cache.t2.small
+      - cache.t2.medium
+      - cache.m3.medium
+      - cache.m3.large
+      - cache.m3.xlarge
+      - cache.m3.2xlarge
+      - cache.r3.large
+      - cache.r3.xlarge
+      - cache.r3.2xlarge
+      - cache.r3.4xlarge
+      - cache.r3.8xlarge
+  MultiAZSupport:
+    Description: >-
+      Indicates whether Multi-AZ is enabled. When Multi-AZ is enabled, a
+      read-only replica is automatically promoted to a read-write primary
+      cluster if the existing primary cluster fails. If you specify true, you must specify a value greater than 1 for the NumCacheClusters property.
+    Type: String
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
+  NumCacheClusters:
+    Description: >-
+      The number of cache clusters for this replication group. If MultiAZ
+      support is enabled, you must specify a value greater than 1.
+    Default: '2'
+    Type: Number
+    MinValue: '1'
+    MaxValue: '6'
+  RedisPort:
+    Description: >-
+      The port number on which each member of the replication group accepts
+      connections.
+    Type: Number
+    Default: '6379'
+    MinValue: '1'
+    MaxValue: '65535'
+  ReplicationGroupDescription:
+    Description: The description of the replication group.
+    Type: String
+    Default: tb qa redis replication group
+  
+  SnapshotRetentionLimit:
+    Description: >-
+      The number of days that ElastiCache retains automatic snapshots before
+      deleting them.
+    Type: Number
+    Default: '7'
+  SnapshotWindow:
+    Description: >-
+      The time range (in UTC) when ElastiCache takes a daily snapshot of your node group.
+    Type: String
+    Default: '05:00-09:00'
+    AllowedPattern: '\d{2}:\d{2}-\d{2}:\d{2}'
+    ConstraintDescription: 'must be a valid timestamp range, for example 05:00-09:00'
+  PreferredMaintenanceWindow:
+    Description: >-
+      The weekly time range during which system maintenance can occur. Use the following format to specify a time range: ddd:hh24:mi-ddd:hh24:mi (24H Clock UTC).
+    Type: String
+    Default: 'sun:22:00-sun:23:30'
+    AllowedPattern: >-
+      (mon|tue|wed|thu|fri|sat|sun):\d{2}:\d{2}-(mon|tue|wed|thu|fri|sat|sun):\d{2}:\d{2}
+    ConstraintDescription: >-
+      must be a valid timestamp range with day of week, for example
+      sun:22:00-sun:23:30
+  
+Resources:
+ 
+  MyDBSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: 'Security group for RDS PostgreSQL'
+      VpcId: !ImportValue TB-qa-VPCId
+      SecurityGroupIngress:
+        - IpProtocol: 'tcp'
+          FromPort: '5432'
+          ToPort: '5432'
+          SourceSecurityGroupId: !ImportValue ECSSecurityGroupARN  
+        - IpProtocol: 'tcp'
+          FromPort: '6379'
+          ToPort: '6379'
+          SourceSecurityGroupId: !ImportValue ECSSecurityGroupARN  
+      
+        
+
+  MyDBInstance:
+    Type: 'AWS::RDS::DBInstance'
+    Properties:
+      AllocatedStorage: '20'
+      DBInstanceClass: 'db.t3.micro'
+      Engine: 'postgres'
+      EngineVersion: '14.7'
+      MasterUsername: '{{resolve:secretsmanager:TbqaRDSsecret:SecretString:username}}'
+      MasterUserPassword: '{{resolve:secretsmanager:TbqaRDSsecret:SecretString:password}}'
+      DBInstanceIdentifier: 'tbqadbinstance'
+      DBName: 'takafulbazaar'
+      StorageType: 'gp2'
+      StorageEncrypted: false  # Enable encryption for storage
+      BackupRetentionPeriod: 7  # Keep automated backups for 7 days
+      PreferredBackupWindow: '03:00-04:00'  # Set preferred backup window
+      DBSubnetGroupName: !Ref MyDBSubnetGroup
+      VPCSecurityGroups:
+        - !Ref MyDBSecurityGroup
+      Tags:
+        - Key: 'Name'
+          Value: 'tb-qa-DBInstance'        
+  MyDBSubnetGroup:
+    Type: 'AWS::RDS::DBSubnetGroup'
+    Properties:
+      DBSubnetGroupDescription: 'Subnet group for RDS'
+      SubnetIds:
+        - !Select [0, !Split [",", !ImportValue TB-qa-PrivateSubnetIds]]  
+        - !Select [1, !Split [",", !ImportValue TB-qa-PrivateSubnetIds]]  
+        - !Select [2, !Split [",", !ImportValue TB-qa-PrivateSubnetIds]]
+################################################################################################################################
+#                                                   REDIS CREATION
+################################################################################################################################
+
+  MyElastiCacheSubnetGroup:
+    Type: AWS::ElastiCache::SubnetGroup
+    Properties:
+      Description: Subnet group for ElastiCache
+      SubnetIds:
+        - !Select [0, !Split [",", !ImportValue TB-qa-PrivateSubnetIds]]  
+        - !Select [1, !Split [",", !ImportValue TB-qa-PrivateSubnetIds]]  
+        - !Select [2, !Split [",", !ImportValue TB-qa-PrivateSubnetIds]]  
+  ReplicationGroup:
+    Type: 'AWS::ElastiCache::ReplicationGroup'
+    Properties:
+      AutomaticFailoverEnabled: !Ref MultiAZSupport
+      CacheNodeType: !Ref CacheNodeType
+      CacheSubnetGroupName: !Ref MyElastiCacheSubnetGroup
+      Engine: redis
+      NumCacheClusters: !Ref NumCacheClusters
+      Port: !Ref RedisPort
+      PreferredMaintenanceWindow: !Ref PreferredMaintenanceWindow
+      ReplicationGroupDescription: !Ref ReplicationGroupDescription
+      SecurityGroupIds:
+        - !GetAtt 
+          - MyDBSecurityGroup
+          - GroupId
+      SnapshotRetentionLimit: !Ref SnapshotRetentionLimit
+      SnapshotWindow: !Ref SnapshotWindow
+  RedisnameSSMParameter:
+    Type: 'AWS::SSM::Parameter'
+    Properties:
+      Name: /tb/qa/REDIS_HOST              # Specify the parameter name
+      Description: My parameter value   # Optional: Add a description
+      Type: String                      # Specify the parameter type (String, SecureString, or StringList)
+      Value: !Join 
+        - ''
+        - - !GetAtt           
+            - ReplicationGroup
+            - PrimaryEndPoint.Address
+  RDSnameSSMParameter:
+    Type: 'AWS::SSM::Parameter'
+    Properties:
+      Name: /tb/qa/DB_HOST              # Specify the parameter name
+      Description: My parameter value   # Optional: Add a description
+      Type: String                      # Specify the parameter type (String, SecureString, or StringList)
+      Value: !GetAtt MyDBInstance.Endpoint.Address
+      
+          
+Outputs:
+  RGEndpoint:
+    Description: The primary endpoint location
+    Value: !Join 
+      - ''
+      - - 'redis://'
+        - !GetAtt 
+          - ReplicationGroup
+          - PrimaryEndPoint.Address
+        - ':'
+        - !GetAtt 
+          - ReplicationGroup
+          - PrimaryEndPoint.Port
+
+  RDSEndpoint:
+    Description: "RDS endpoint"
+    Value: !GetAtt MyDBInstance.Endpoint.Address
+  RDSPort:
+    Description: "RDS port"
+    Value: !GetAtt MyDBInstance.Endpoint.Port

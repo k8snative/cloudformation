@@ -1,0 +1,52 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: CloudFormation template to create an ECS cluster, task definition, service, and ALB with target group.
+
+Parameters:
+
+  LoadBalancerName:
+    Type: String
+    Default: tbqa-us-east-1-lb
+    Description: Name for the ALB (Application Load Balancer)
+Resources:
+    
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Ref LoadBalancerName
+      Subnets:
+        - !Select [1, !Split [",", !ImportValue TB-qa-PublicSubnetIds]] # Replace with your public subnet ID
+        - !Select [0, !Split [",", !ImportValue TB-qa-PublicSubnetIds]]
+        - !Select [2, !Split [",", !ImportValue TB-qa-PublicSubnetIds]]
+        
+      SecurityGroups:
+        - !Ref ECSSecurityGroup
+  ECSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Security group for ECS Fargate tasks when creating ALB"
+      VpcId: !ImportValue TB-qa-VPCId  # Replace with your VPC ID
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 0
+          ToPort: 65535
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          CidrIp: 0.0.0.0/0
+Outputs:
+  LoadBalancerARN:
+    Description: ARN of the created load balancer
+    Value: !Ref LoadBalancer
+    Export:
+      Name: "LoadBalancerARN"
+  ECSSecurityGroupARN:
+    Description: Security Group
+    Value: !Ref ECSSecurityGroup
+    Export:
+      Name: "ECSSecurityGroupARN"
+  LoadBalancerNameExported:
+    Description: Name of the created load balancer
+    Value: !GetAtt LoadBalancer.DNSName
+    Export:
+      Name: "ALBName"
+

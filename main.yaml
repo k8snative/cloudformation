@@ -1,0 +1,234 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: CloudFormation template to create complete infrastructure
+
+Parameters:
+  VPCNametb:
+    Type: String
+    Description: Enter a name for the VPC
+    Default: 'tbqavpc'
+
+  VPCCIDRtb:
+    Type: String
+    Description: Enter the CIDR block for the VPC (e.g., 192.168.0.0/16)
+    Default: '192.168.0.0/16'
+  Subnet1pubtb:
+    Type: String
+    Description: Enter Public Subnet 1
+    Default: '192.168.0.0/24'
+  Subnet2pubtb:
+    Type: String
+    Description: Enter Public Subnet 2
+    Default: '192.168.1.0/24' 
+  Subnet3pubtb:
+    Type: String
+    Description: Enter Public Subnet 3
+    Default: '192.168.2.0/24'
+  Subnet1pritb:
+    Type: String
+    Description: Enter Private Subnet 1
+    Default: '192.168.10.0/24'
+  Subnet2pritb:
+    Type: String
+    Description: Enter Private Subnet 2
+    Default: '192.168.11.0/24'
+  Subnet3pritb:
+    Type: String
+    Description: Enter Private Subnet 3
+    Default: '192.168.12.0/24'
+################################################################
+# Parameters for 2nd stack
+################################################################
+  TbEcrRepoENV:
+    Type: String
+    Description: Enter a name for the ECR Repository
+    Default: 'backend_v2_qa'
+  LoadBalancerNameENV:
+    Type: String
+    Default: tbqa-us-east-1-lb
+    Description: Name for the ALB (Application Load Balancer)
+
+  CacheNodeTypeENV:
+    Description: The instance type the nodes will launch under.
+    Type: String
+    Default: cache.t2.micro
+    AllowedValues:
+      - cache.t2.micro
+      - cache.t2.small
+      - cache.t2.medium
+      - cache.m3.medium
+      - cache.m3.large
+      - cache.m3.xlarge
+      - cache.m3.2xlarge
+      - cache.r3.large
+      - cache.r3.xlarge
+      - cache.r3.2xlarge
+      - cache.r3.4xlarge
+      - cache.r3.8xlarge
+  MultiAZSupportENV:
+    Description: >-
+      Indicates whether Multi-AZ is enabled. When Multi-AZ is enabled, a
+      read-only replica is automatically promoted to a read-write primary
+      cluster if the existing primary cluster fails. If you specify true, you must specify a value greater than 1 for the NumCacheClusters property.
+    Type: String
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
+  NumCacheClustersENV:
+    Description: >-
+      The number of cache clusters for this replication group. If MultiAZ
+      support is enabled, you must specify a value greater than 1.
+    Default: '2'
+    Type: Number
+    MinValue: '1'
+    MaxValue: '6'
+  RedisPortENV:
+    Description: >-
+      The port number on which each member of the replication group accepts
+      connections.
+    Type: Number
+    Default: '6379'
+    MinValue: '1'
+    MaxValue: '65535'
+  ReplicationGroupDescriptionENV:
+    Description: The description of the replication group.
+    Type: String
+    Default: tb qa redis replication group
+  
+  SnapshotRetentionLimitENV:
+    Description: >-
+      The number of days that ElastiCache retains automatic snapshots before
+      deleting them.
+    Type: Number
+    Default: '7'
+  SnapshotWindowENV:
+    Description: >-
+      The time range (in UTC) when ElastiCache takes a daily snapshot of your node group.
+    Type: String
+    Default: '05:00-09:00'
+    AllowedPattern: '\d{2}:\d{2}-\d{2}:\d{2}'
+    ConstraintDescription: 'must be a valid timestamp range, for example 05:00-09:00'
+  PreferredMaintenanceWindowENV:
+    Description: >-
+      The weekly time range during which system maintenance can occur. Use the following format to specify a time range: ddd:hh24:mi-ddd:hh24:mi (24H Clock UTC).
+    Type: String
+    Default: 'sun:22:00-sun:23:30'
+    AllowedPattern: >-
+      (mon|tue|wed|thu|fri|sat|sun):\d{2}:\d{2}-(mon|tue|wed|thu|fri|sat|sun):\d{2}:\d{2}
+    ConstraintDescription: >-
+      must be a valid timestamp range with day of week, for example
+      sun:22:00-sun:23:30
+  BitbucketConnectENV:
+    Type: String
+    Description: Enter Bitbucket connection ARN
+    Default: 'arn:aws:codestar-connections:us-east-1:329905732051:connection/22c595c3-7502-43f2-ab67-4a00dfdab4a9'
+  # The bucket name must be the same as the CNAME
+  BucketNameENV:
+    Type: String
+    Default: tbqa
+  CertificateACMENV:
+    Type: String
+    Default: arn:aws:acm:us-east-1:329905732051:certificate/7ea2f12f-76c9-4190-92ee-f61a69894c1a
+  CustomDomainENV:
+    Type: String
+    Default: tbqa.takafulbazaar.com.pk
+    Description: The custom domain name to be used as a CNAME for the CloudFront distribution
+  HostedzoneENV:
+    Type: String
+    Default: Z00539813AJN2COJVVPU4
+    Description: The Hosted zone ID in which CNAME will be created
+  ServiceNameENV:
+    Type: String
+    Default: tb-qa-backend
+
+Resources:
+  vpcsubnet:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://cf-templates-occwscb6h8wp-us-east-1.s3.amazonaws.com/tbuloadedstcks/01-vpc-subnet-ig-natGW.yaml
+      Parameters:
+        VPCName: !Ref VPCNametb
+        VPCCIDR: !Ref VPCCIDRtb
+        Subnet1pub: !Ref Subnet1pubtb
+        Subnet2pub: !Ref Subnet2pubtb
+        Subnet3pub: !Ref Subnet3pubtb
+        Subnet1pri: !Ref Subnet1pritb
+        Subnet2pri: !Ref Subnet2pritb
+        Subnet3pri: !Ref Subnet3pritb
+  ecr:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://cf-templates-occwscb6h8wp-us-east-1.s3.amazonaws.com/tbuloadedstcks/02-ecr.yaml
+      Parameters:
+        TbEcrRepo: !Ref TbEcrRepoENV
+    DependsOn: vpcsubnet
+  ecsclusterTask:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://cf-templates-occwscb6h8wp-us-east-1.s3.amazonaws.com/tbuloadedstcks/03-ecs-cluster-qa.yaml
+    DependsOn: ecr
+  ApplicationLB:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://cf-templates-occwscb6h8wp-us-east-1.s3.amazonaws.com/tbuloadedstcks/04-qa-loadbalancer.yaml
+      Parameters:
+        LoadBalancerName: !Ref LoadBalancerNameENV
+    DependsOn: ecsclusterTask
+  RDSElasticacheRedis:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://cf-templates-occwscb6h8wp-us-east-1.s3.amazonaws.com/tbuloadedstcks/05-RDS-elasticache-Redis.yaml
+      Parameters:
+        CacheNodeType: !Ref CacheNodeTypeENV
+        MultiAZSupport: !Ref MultiAZSupportENV
+        NumCacheClusters: !Ref NumCacheClustersENV
+        RedisPort: !Ref RedisPortENV
+        ReplicationGroupDescription: !Ref ReplicationGroupDescriptionENV
+        SnapshotRetentionLimit: !Ref SnapshotRetentionLimitENV
+        SnapshotWindow: !Ref SnapshotWindowENV
+        PreferredMaintenanceWindow: !Ref PreferredMaintenanceWindowENV
+    DependsOn: ApplicationLB
+  BackendCodePipeline:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://cf-templates-occwscb6h8wp-us-east-1.s3.amazonaws.com/tbuloadedstcks/06-codepipeline.yaml
+      Parameters:
+        BitbucketConnect: !Ref BitbucketConnectENV        
+    DependsOn: RDSElasticacheRedis
+  S3CloudfrontDNS:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://cf-templates-occwscb6h8wp-us-east-1.s3.amazonaws.com/tbuloadedstcks/07-s3-cloudfront-dns.yaml
+      Parameters:
+        BucketName: !Ref BucketNameENV
+        CertificateACM: !Ref CertificateACMENV
+        CustomDomain: !Ref CustomDomainENV
+        Hostedzone: !Ref HostedzoneENV
+    DependsOn: BackendCodePipeline
+  FrontendCodePipeline:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://cf-templates-occwscb6h8wp-us-east-1.s3.amazonaws.com/tbuloadedstcks/08-codepipeline-frontend.yaml
+      Parameters:
+        BitbucketConnectfront: !Ref BitbucketConnectENV        
+    DependsOn: S3CloudfrontDNS
+  ECSService:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://cf-templates-occwscb6h8wp-us-east-1.s3.amazonaws.com/tbuloadedstcks/09-ecs-qa-service.yaml
+      Parameters:
+        ServiceName: !Ref ServiceNameENV        
+    DependsOn: FrontendCodePipeline
+  
+    
+    
+  
+  
+
+
+
+
+
+
+
+  

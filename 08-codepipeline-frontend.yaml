@@ -1,0 +1,307 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Parameters:
+  BitbucketConnectfront:
+    Type: String
+    Description: Enter Bitbucket connection ARN
+    Default: 'arn:aws:codestar-connections:us-east-1:329905732051:connection/22c595c3-7502-43f2-ab67-4a00dfdab4a9'
+Resources:
+  ArtifactStoreBucket:
+    Type: AWS::S3::Bucket
+  S3CustomResource:
+    Type: Custom::S3CustomResource
+    Properties:
+      ServiceToken: !GetAtt AWSLambdaFunctionbackends3frontend.Arn
+      bucket_name: !Ref ArtifactStoreBucket    ## Additional parameter here
+
+  AWSLambdaFunctionbackends3frontend:
+     Type: AWS::Lambda::Function
+     Properties:
+       Description: "Empty an S3 bucket!"
+       FunctionName: !Sub 'BackendPipelineDeleteS3frontend-${AWS::Region}-lambda'
+       Handler: index.handler
+       Role: !GetAtt AWSLambdaExecutionRolebackends3frontend.Arn
+       Timeout: 360
+       Runtime: python3.8
+       Code:
+         ZipFile: |
+          import boto3
+          import cfnresponse
+          ### cfnresponse module help in sending responses to CloudFormation
+          ### instead of writing your own code
+
+          def handler(event, context):
+              # Get request type
+              the_event = event['RequestType']        
+              print("The event is: ", str(the_event))
+
+              response_data = {}
+              s3 = boto3.client('s3')
+
+              # Retrieve parameters (bucket name)
+              bucket_name = event['ResourceProperties']['bucket_name']
+              
+              try:
+                  if the_event == 'Delete':
+                      print("Deleting S3 content...")
+                      b_operator = boto3.resource('s3')
+                      b_operator.Bucket(str(bucket_name)).objects.all().delete()
+
+                  # Everything OK... send the signal back
+                  print("Execution succesfull!")
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, response_data)
+              except Exception as e:
+                  print("Execution failed...")
+                  print(str(e))
+                  response_data['Data'] = str(e)
+                  cfnresponse.send(event, context, cfnresponse.FAILED, response_data)
+
+  AWSLambdaExecutionRolebackends3frontend:
+     Type: AWS::IAM::Role
+     Properties:
+       AssumeRolePolicyDocument:
+         Statement:
+         - Action:
+           - sts:AssumeRole
+           Effect: Allow
+           Principal:
+             Service:
+             - lambda.amazonaws.com
+         Version: '2012-10-17'
+       Path: "/"
+       Policies:
+       - PolicyDocument:
+           Statement:
+           - Action:
+             - logs:CreateLogGroup
+             - logs:CreateLogStream
+             - logs:PutLogEvents
+             Effect: Allow
+             Resource: arn:aws:logs:*:*:*
+           Version: '2012-10-17'
+         PolicyName: !Sub BackendPipelineDeleteS3frontend-${AWS::Region}-AWSLambda-CW
+       - PolicyDocument:
+           Statement:
+           - Action:
+             - s3:PutObject
+             - s3:DeleteObject
+             - s3:List*
+             Effect: Allow
+             Resource:
+             - !Sub arn:aws:s3:::${ArtifactStoreBucket}
+             - !Sub arn:aws:s3:::${ArtifactStoreBucket}/*
+           Version: '2012-10-17'
+         PolicyName: !Sub BackendPipelineDeleteS3frontend-${AWS::Region}-AWSLambda-S3
+       RoleName: !Sub BackendPipelineDeleteS3frontend-${AWS::Region}-AWSLambdaExecutionRole  
+
+  KMSKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: My Custom CMK for CodePipeline Artifact Encryption
+      KeyPolicy:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: Enable IAM User Permissions
+            Effect: Allow
+            Principal:
+              AWS: !Sub arn:aws:iam::${AWS::AccountId}:root
+            Action: kms:*
+            Resource: "*"
+          - Sid: Enable Key Administrators Permissions
+            Effect: Allow
+            Principal:
+              AWS: !Sub arn:aws:iam::${AWS::AccountId}:root
+            Action: kms:Create*
+            Resource: "*"
+          - Sid: Allow AWS CodePipeline to use the key
+            Effect: Allow
+            Principal:
+              Service: codepipeline.amazonaws.com
+            Action:
+              - kms:Encrypt
+              - kms:Decrypt
+              - kms:ReEncrypt*
+              - kms:GenerateDataKey*
+              - kms:DescribeKey
+            Resource: "*"
+          - Sid: Allow CodePipeline to use the key
+            Effect: Allow
+            Principal:
+              AWS: !GetAtt CodePipelineServiceRole.Arn
+            Action:
+              - kms:GenerateDataKey
+            Resource: "*"
+          - Sid: Allow CodePipeline Service Role to Decrypt
+            Effect: Allow
+            Principal:
+              AWS: !GetAtt CodePipelineServiceRole.Arn
+            Action:
+              - kms:Decrypt
+            Resource: "*"
+
+  CodePipelineServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codepipeline.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSCodePipeline_FullAccess
+        - arn:aws:iam::329905732051:policy/service-role/AWSCodePipelineServiceRole-ap-southeast-1-tb-aws-bitbucket-test
+      Path: /
+
+  CodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: tb-qa-adminfrontend
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        ComputeType: BUILD_GENERAL1_LARGE
+        Image: aws/codebuild/standard:6.0
+        Type: LINUX_CONTAINER
+        PrivilegedMode: false
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: |
+          version: 0.2
+          phases:
+            pre_build:
+              commands:
+                - echo Deployment is about to start....                
+            build:
+              commands:
+                - echo Build started on `date`
+                - echo Deploying on S3
+                - which npm
+                - which yarn
+                - node -v
+                - yarn install
+                - yarn run build
+            post_build:
+              commands:
+                - echo Build completed on `date`
+                - frontbucketname=$(aws ssm get-parameter --region $AWS_REGION --name "/tbenv/frontendbucketname" --with-decryption --query "Parameter.Value" --output text)
+                - aws s3 sync build/ s3://$frontbucketname/ --delete
+      TimeoutInMinutes: 5
+      ServiceRole: !GetAtt CodeBuildServiceRole.Arn
+  
+  
+
+  CodeBuildServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSCodeBuildAdminAccess
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPowerUser
+        - arn:aws:iam::aws:policy/AmazonECS_FullAccess
+        - arn:aws:iam::aws:policy/AmazonSSMReadOnlyAccess 
+        - arn:aws:iam::aws:policy/SecretsManagerReadWrite
+        
+      Path: /
+      Policies:
+        - PolicyName: CloudWatchLogsPermissions
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub arn:aws:logs:${AWS::Region}:329905732051:*
+        - PolicyName: ECSDeployUpdate
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ecs:UpdateService
+                  - iam:PassRole
+                Resource: !Sub arn:aws:logs:${AWS::Region}:329905732051:*
+        - PolicyName: KMSDecryptionPermissions
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: kms:Decrypt
+                Resource: !GetAtt KMSKey.Arn
+              - Effect: Allow
+                Action: kms:GenerateDataKey
+                Resource: !GetAtt KMSKey.Arn                
+  AppPipeline:
+    Type: AWS::CodePipeline::Pipeline
+    DependsOn: CodeBuildProject
+    Properties:
+      RoleArn:
+        Fn::GetAtt: [CodePipelineServiceRole, Arn]
+      Stages:
+        - Name: Source
+          Actions:
+            - Name: SourceAction
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Version: 1
+                Provider: CodeStarSourceConnection  # Use CodeStarSourceConnection for Bitbucket
+              OutputArtifacts:
+                - Name: SourceOutput
+              Configuration:
+                ConnectionArn: !Ref BitbucketConnectfront #arn:aws:codestar-connections:us-east-1:329905732051:connection/22c595c3-7502-43f2-ab67-4a00dfdab4a9  # Bitbucket connection ARN
+                FullRepositoryId: takaful-bazaar/admin_fe_v2  # Replace with your Bitbucket repository ID ..
+                BranchName: qa  # Replace with the desired branch name in your Bitbucket repository
+              RunOrder: 1
+        - Name: Build
+          Actions:
+            - Name: BuildAction
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: 1
+                Provider: CodeBuild
+              Configuration:
+                ProjectName: tb-qa-adminfrontend
+              InputArtifacts:
+                - Name: SourceOutput
+              OutputArtifacts:
+                - Name: BuildOutput
+              RunOrder: 1
+        #- Name: Deploy
+        #  Actions:
+        #    - Name: BuildAction
+        #      ActionTypeId:
+        #        Category: Build
+        #        Owner: AWS
+        #        Version: 1
+        #        Provider: CodeBuild
+        #      Configuration:
+        #        ProjectName: tb-qa-ecs-deploy-CodeBuildProject
+        #      InputArtifacts:
+        #        - Name: SourceOutput
+        #      OutputArtifacts:
+        #        - Name: BuildOutputDeploy
+        #      RunOrder: 1
+
+      ArtifactStore:
+        Type: S3
+        Location:
+          Ref: ArtifactStoreBucket  # Use the newly created S3 bucket as the artifact store
+        EncryptionKey:
+          Id: !Ref KMSKey  # Use the newly created KMS CMK for artifact encryption
+          Type: KMS
+      Tags:
+        - Key: Project
+          Value: ProjectA
+        - Key: IsContainerBased
+          Value: 'true'

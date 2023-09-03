@@ -1,0 +1,69 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: CloudFormation template to create an ECS cluster, task definition, service, and ALB with target group.
+
+Resources:
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+               
+  ECSLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: "/ecs/tb-qa-log-group"
+  ECStaskdefSSMParameter:
+    Type: 'AWS::SSM::Parameter'
+    Properties:
+      Name: /tbenv/ecstask              # Specify the parameter name
+      Description: My parameter value   # Optional: Add a description
+      Type: String                      # Specify the parameter type (String, SecureString, or StringList)
+      Value: !Ref ECSTaskDefinition           # Specify the parameter value
+  ECSclusternameSSMParameter:
+    Type: 'AWS::SSM::Parameter'
+    Properties:
+      Name: /tbenv/clustername              # Specify the parameter name
+      Description: My parameter value   # Optional: Add a description
+      Type: String                      # Specify the parameter type (String, SecureString, or StringList)
+      Value: !Ref ECSCluster           # Specify the parameter value
+
+
+
+  ECSTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: TbQATask
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: "2048"  # 2 vCPUs (1024 CPU units per vCPU)
+      Memory: "8192"  # 8 GB memory in MiB (1 GB = 1024 MiB)
+      NetworkMode: "awsvpc"
+      ExecutionRoleArn: "arn:aws:iam::329905732051:role/ecsTaskExecutionRole"
+      ContainerDefinitions:
+        - Name: TbQAContainer
+          Image: !ImportValue TbECRqaUri
+          Essential: true
+          Command:
+            - "npm"
+            - "run"
+            - "start:dev"
+          PortMappings:
+            - ContainerPort: 3000
+              Protocol: "tcp"
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: "/ecs/tb-qa-log-group"
+              awslogs-region: !Ref "AWS::Region"
+              awslogs-stream-prefix: "tb-qa-ecs-logs"
+Outputs:
+  ECSClusterArn:
+    Value: !Ref ECSCluster
+    Export:
+      Name: tb-qa-ECSCluster
+  ECSTaskDefinition:
+    Description: Task definition.
+    Value: !Ref ECSTaskDefinition
+    Export:
+      Name: tb-qa-ECSTaskDefinition
+  
+  
+
+
