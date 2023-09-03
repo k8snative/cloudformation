@@ -7,14 +7,14 @@ Parameters:
     Default: tbqa
   CertificateACM:
     Type: String
-    Default: arn:aws:acm:us-east-1:329905732051:certificate/7ea2f12f-76c9-4190-92ee-f61a69894c1a
+    Default: arn:aws:acm:us-east-1:1234567890:certificate/7ea2f12f-76c9-4190-92ee-f61a69894c1a
   CustomDomain:
     Type: String
     Default: tbqa.takafulbazaar.com.pk
     Description: The custom domain name to be used as a CNAME for the CloudFront distribution
   Hostedzone:
     Type: String
-    Default: Z00539813AJN2COJVVPU4
+    Default: ZXCVBHYT00539813
     Description: The Hosted zone ID in which CNAME will be created
   
 Resources:
