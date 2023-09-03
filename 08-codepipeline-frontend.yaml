@@ -3,7 +3,7 @@ Parameters:
   BitbucketConnectfront:
     Type: String
     Description: Enter Bitbucket connection ARN
-    Default: 'arn:aws:codestar-connections:us-east-1:329905732051:connection/22c595c3-7502-43f2-ab67-4a00dfdab4a9'
+    Default: 'arn:aws:codestar-connections:us-east-1:1234567890:connection/22c595c3-7502-43f2-ab67-4a00dfdab4a9'
 Resources:
   ArtifactStoreBucket:
     Type: AWS::S3::Bucket
@@ -150,7 +150,7 @@ Resources:
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AWSCodePipeline_FullAccess
-        - arn:aws:iam::329905732051:policy/service-role/AWSCodePipelineServiceRole-ap-southeast-1-tb-aws-bitbucket-test
+        - arn:aws:iam::1234567890:policy/service-role/AWSCodePipelineServiceRole-ap-southeast-1-tb-aws-bitbucket-test
       Path: /
 
   CodeBuildProject:
@@ -220,7 +220,7 @@ Resources:
                   - logs:CreateLogGroup
                   - logs:CreateLogStream
                   - logs:PutLogEvents
-                Resource: !Sub arn:aws:logs:${AWS::Region}:329905732051:*
+                Resource: !Sub arn:aws:logs:${AWS::Region}:1234567890:*
         - PolicyName: ECSDeployUpdate
           PolicyDocument:
             Version: '2012-10-17'
@@ -229,7 +229,7 @@ Resources:
                 Action:
                   - ecs:UpdateService
                   - iam:PassRole
-                Resource: !Sub arn:aws:logs:${AWS::Region}:329905732051:*
+                Resource: !Sub arn:aws:logs:${AWS::Region}:1234567890:*
         - PolicyName: KMSDecryptionPermissions
           PolicyDocument:
             Version: '2012-10-17'
@@ -258,7 +258,7 @@ Resources:
               OutputArtifacts:
                 - Name: SourceOutput
               Configuration:
-                ConnectionArn: !Ref BitbucketConnectfront #arn:aws:codestar-connections:us-east-1:329905732051:connection/22c595c3-7502-43f2-ab67-4a00dfdab4a9  # Bitbucket connection ARN
+                ConnectionArn: !Ref BitbucketConnectfront #arn:aws:codestar-connections:us-east-1:1234567890:connection/22c595c3-7502-43f2-ab67-4a00dfdab4a9  # Bitbucket connection ARN
                 FullRepositoryId: takaful-bazaar/admin_fe_v2  # Replace with your Bitbucket repository ID ..
                 BranchName: qa  # Replace with the desired branch name in your Bitbucket repository
               RunOrder: 1
