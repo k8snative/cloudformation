@@ -47,7 +47,7 @@ Parameters:
   ReplicationGroupDescription:
     Description: The description of the replication group.
     Type: String
-    Default: tb qa redis replication group
+    Default: ff qa redis replication group
   
   SnapshotRetentionLimit:
     Description: >-
@@ -79,7 +79,7 @@ Resources:
     Type: 'AWS::EC2::SecurityGroup'
     Properties:
       GroupDescription: 'Security group for RDS PostgreSQL'
-      VpcId: !ImportValue TB-qa-VPCId
+      VpcId: !ImportValue ff-qa-VPCId
       SecurityGroupIngress:
         - IpProtocol: 'tcp'
           FromPort: '5432'
@@ -99,40 +99,38 @@ Resources:
       DBInstanceClass: 'db.t3.micro'
       Engine: 'postgres'
       EngineVersion: '14.7'
-      MasterUsername: '{{resolve:secretsmanager:TbqaRDSsecret:SecretString:username}}'
-      MasterUserPassword: '{{resolve:secretsmanager:TbqaRDSsecret:SecretString:password}}'
-      DBInstanceIdentifier: 'tbqadbinstance'
+      MasterUsername: '{{resolve:secretsmanager:ffqaRDSsecret:SecretString:username}}'
+      MasterUserPassword: '{{resolve:secretsmanager:ffqaRDSsecret:SecretString:password}}'
+      DBInstanceIdentifier: 'ffqadbinstance'
       DBName: 'databasename'
       StorageType: 'gp2'
-      StorageEncrypted: false  # Enable encryption for storage
-      BackupRetentionPeriod: 7  # Keep automated backups for 7 days
-      PreferredBackupWindow: '03:00-04:00'  # Set preferred backup window
+      StorageEncrypted: false  
+      BackupRetentionPeriod: 7  
+      PreferredBackupWindow: '03:00-04:00'  
       DBSubnetGroupName: !Ref MyDBSubnetGroup
       VPCSecurityGroups:
         - !Ref MyDBSecurityGroup
       Tags:
         - Key: 'Name'
-          Value: 'tb-qa-DBInstance'        
+          Value: 'ff-qa-DBInstance'        
   MyDBSubnetGroup:
     Type: 'AWS::RDS::DBSubnetGroup'
     Properties:
       DBSubnetGroupDescription: 'Subnet group for RDS'
       SubnetIds:
-        - !Select [0, !Split [",", !ImportValue TB-qa-PrivateSubnetIds]]  
-        - !Select [1, !Split [",", !ImportValue TB-qa-PrivateSubnetIds]]  
-        - !Select [2, !Split [",", !ImportValue TB-qa-PrivateSubnetIds]]
-################################################################################################################################
-#                                                   REDIS CREATION
-################################################################################################################################
+        - !Select [0, !Split [",", !ImportValue ff-qa-PrivateSubnetIds]]  
+        - !Select [1, !Split [",", !ImportValue ff-qa-PrivateSubnetIds]]  
+        - !Select [2, !Split [",", !ImportValue ff-qa-PrivateSubnetIds]]
+
 
   MyElastiCacheSubnetGroup:
     Type: AWS::ElastiCache::SubnetGroup
     Properties:
       Description: Subnet group for ElastiCache
       SubnetIds:
-        - !Select [0, !Split [",", !ImportValue TB-qa-PrivateSubnetIds]]  
-        - !Select [1, !Split [",", !ImportValue TB-qa-PrivateSubnetIds]]  
-        - !Select [2, !Split [",", !ImportValue TB-qa-PrivateSubnetIds]]  
+        - !Select [0, !Split [",", !ImportValue ff-qa-PrivateSubnetIds]]  
+        - !Select [1, !Split [",", !ImportValue ff-qa-PrivateSubnetIds]]  
+        - !Select [2, !Split [",", !ImportValue ff-qa-PrivateSubnetIds]]  
   ReplicationGroup:
     Type: 'AWS::ElastiCache::ReplicationGroup'
     Properties:
@@ -153,9 +151,9 @@ Resources:
   RedisnameSSMParameter:
     Type: 'AWS::SSM::Parameter'
     Properties:
-      Name: /tb/qa/REDIS_HOST              # Specify the parameter name
-      Description: My parameter value   # Optional: Add a description
-      Type: String                      # Specify the parameter type (String, SecureString, or StringList)
+      Name: /ff/qa/REDIS_HOST              
+      Description: My parameter value   
+      Type: String                      
       Value: !Join 
         - ''
         - - !GetAtt           
@@ -164,9 +162,9 @@ Resources:
   RDSnameSSMParameter:
     Type: 'AWS::SSM::Parameter'
     Properties:
-      Name: /tb/qa/DB_HOST              # Specify the parameter name
-      Description: My parameter value   # Optional: Add a description
-      Type: String                      # Specify the parameter type (String, SecureString, or StringList)
+      Name: /ff/qa/DB_HOST              
+      Description: My parameter value   
+      Type: String                      
       Value: !GetAtt MyDBInstance.Endpoint.Address
       
           

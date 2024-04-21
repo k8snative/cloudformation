@@ -3,13 +3,13 @@ Description: The template used to create an ECS Service from the ECS Console.
 Parameters:  
   ServiceName:
     Type: String
-    Default: tb-qa-backend
+    Default: ff-qa-backend
   
 Resources:
   ServnameSSMParameter:
     Type: 'AWS::SSM::Parameter'
     Properties:
-      Name: /tbenv/ecsservicename              # Specify the parameter name
+      Name: /ffenv/ecsservicename              # Specify the parameter name
       Description: My parameter value   # Optional: Add a description
       Type: String                      # Specify the parameter type (String, SecureString, or StringList)
       Value: !Ref ServiceName           # Specify the parameter value
@@ -17,14 +17,14 @@ Resources:
   ECSService:
     Type: 'AWS::ECS::Service'
     Properties:
-      Cluster: !ImportValue tb-qa-ECSCluster
-      TaskDefinition: !ImportValue tb-qa-ECSTaskDefinition 
+      Cluster: !ImportValue ff-qa-ECSCluster
+      TaskDefinition: !ImportValue ff-qa-ECSTaskDefinition 
       LaunchType: FARGATE
       ServiceName: !Ref ServiceName
       SchedulingStrategy: REPLICA
       DesiredCount: 1
       LoadBalancers:
-        - ContainerName: TbQAContainer
+        - ContainerName: ffQAContainer
           ContainerPort: 3000
           LoadBalancerName: !Ref 'AWS::NoValue'
           TargetGroupArn: !Ref TargetGroup
@@ -33,14 +33,14 @@ Resources:
           AssignPublicIp: DISABLED
           SecurityGroups: !Split [",", !ImportValue ECSSecurityGroupARN] 
           Subnets: 
-            - !Select [0, !Split [",", !ImportValue TB-qa-PrivateSubnetIds]]  
-            - !Select [1, !Split [",", !ImportValue TB-qa-PrivateSubnetIds]]  
-            - !Select [2, !Split [",", !ImportValue TB-qa-PrivateSubnetIds]]
+            - !Select [0, !Split [",", !ImportValue ff-qa-PrivateSubnetIds]]  
+            - !Select [1, !Split [",", !ImportValue ff-qa-PrivateSubnetIds]]  
+            - !Select [2, !Split [",", !ImportValue ff-qa-PrivateSubnetIds]]
       PlatformVersion: LATEST
       DeploymentConfiguration:
         MaximumPercent: 200
         MinimumHealthyPercent: 100
-        DeploymentCircuitBreaker:
+        DeploymentCircuiffreaker:
           Enable: true
           Rollback: true
       DeploymentController:
@@ -54,15 +54,15 @@ Resources:
   TargetGroup:
     Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
     Properties:
-      HealthCheckPath: /api/v1/ping
-      HealthCheckTimeoutSeconds: 120   # Updated health check timeout
-      HealthCheckIntervalSeconds: 300  # Updated health check interval
-      Name: tbqa-backend1
+      HealthCheckPath: /
+      HealthCheckTimeoutSeconds: 120   
+      HealthCheckIntervalSeconds: 300  
+      Name: ffqa-backend1
       Port: 80
       Protocol: HTTP
       TargetType: ip
       HealthCheckProtocol: HTTP
-      VpcId: !ImportValue TB-qa-VPCId 
+      VpcId: !ImportValue ff-qa-VPCId 
   Listener:
     Type: 'AWS::ElasticLoadBalancingV2::Listener'
     Properties:

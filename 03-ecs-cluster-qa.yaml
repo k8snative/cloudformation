@@ -8,37 +8,37 @@ Resources:
   ECSLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: "/ecs/tb-qa-log-group"
+      LogGroupName: "/ecs/ff-qa-log-group"
   ECStaskdefSSMParameter:
     Type: 'AWS::SSM::Parameter'
     Properties:
-      Name: /tbenv/ecstask              # Specify the parameter name
-      Description: My parameter value   # Optional: Add a description
-      Type: String                      # Specify the parameter type (String, SecureString, or StringList)
-      Value: !Ref ECSTaskDefinition           # Specify the parameter value
+      Name: /ffenv/ecstask              
+      Description: My parameter value   
+      Type: String                      
+      Value: !Ref ECSTaskDefinition           
   ECSclusternameSSMParameter:
     Type: 'AWS::SSM::Parameter'
     Properties:
-      Name: /tbenv/clustername              # Specify the parameter name
-      Description: My parameter value   # Optional: Add a description
-      Type: String                      # Specify the parameter type (String, SecureString, or StringList)
-      Value: !Ref ECSCluster           # Specify the parameter value
+      Name: /ffenv/clustername              
+      Description: My parameter value   #
+      Type: String                      
+      Value: !Ref ECSCluster           
 
 
 
   ECSTaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
-      Family: TbQATask
+      Family: ffQATask
       RequiresCompatibilities:
         - FARGATE
-      Cpu: "2048"  # 2 vCPUs (1024 CPU units per vCPU)
-      Memory: "8192"  # 8 GB memory in MiB (1 GB = 1024 MiB)
+      Cpu: "2048"  
+      Memory: "8192"  
       NetworkMode: "awsvpc"
-      ExecutionRoleArn: "arn:aws:iam::329905732051:role/ecsTaskExecutionRole"
+      ExecutionRoleArn: "arn:aws:iam::1234567890:role/ecsTaskExecutionRole"
       ContainerDefinitions:
-        - Name: TbQAContainer
-          Image: !ImportValue TbECRqaUri
+        - Name: ffQAContainer
+          Image: !ImportValue ffECRqaUri
           Essential: true
           Command:
             - "npm"
@@ -50,19 +50,19 @@ Resources:
           LogConfiguration:
             LogDriver: awslogs
             Options:
-              awslogs-group: "/ecs/tb-qa-log-group"
+              awslogs-group: "/ecs/ff-qa-log-group"
               awslogs-region: !Ref "AWS::Region"
-              awslogs-stream-prefix: "tb-qa-ecs-logs"
+              awslogs-stream-prefix: "ff-qa-ecs-logs"
 Outputs:
   ECSClusterArn:
     Value: !Ref ECSCluster
     Export:
-      Name: tb-qa-ECSCluster
+      Name: ff-qa-ECSCluster
   ECSTaskDefinition:
     Description: Task definition.
     Value: !Ref ECSTaskDefinition
     Export:
-      Name: tb-qa-ECSTaskDefinition
+      Name: ff-qa-ECSTaskDefinition
   
   
 

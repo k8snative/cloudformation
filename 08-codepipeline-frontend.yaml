@@ -1,9 +1,9 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Parameters:
-  BitbucketConnectfront:
+  BiffucketConnectfront:
     Type: String
-    Description: Enter Bitbucket connection ARN
-    Default: 'arn:aws:codestar-connections:us-east-1:1234567890:connection/22c595c3-7502-43f2-ab67-4a00dfdab4a9'
+    Description: Enter Biffucket connection ARN
+    Default: 'arn:aws:codestar-connections:us-east-1:1234567890:connection/22c595c3-7502-43f2-ab67-4453676543256'
 Resources:
   ArtifactStoreBucket:
     Type: AWS::S3::Bucket
@@ -150,13 +150,13 @@ Resources:
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AWSCodePipeline_FullAccess
-        - arn:aws:iam::1234567890:policy/service-role/AWSCodePipelineServiceRole-ap-southeast-1-tb-aws-bitbucket-test
+        - arn:aws:iam::1234567890:policy/service-role/AWSCodePipelineServiceRole-ap-southeast-1-ff-aws-biffucket-test
       Path: /
 
   CodeBuildProject:
     Type: AWS::CodeBuild::Project
     Properties:
-      Name: tb-qa-adminfrontend
+      Name: ff-qa-adminfrontend
       Artifacts:
         Type: CODEPIPELINE
       Environment:
@@ -184,8 +184,8 @@ Resources:
             post_build:
               commands:
                 - echo Build completed on `date`
-                - frontbucketname=$(aws ssm get-parameter --region $AWS_REGION --name "/tbenv/frontendbucketname" --with-decryption --query "Parameter.Value" --output text)
-                - aws s3 sync build/ s3://$frontbucketname/ --delete
+                - fronffucketname=$(aws ssm get-parameter --region $AWS_REGION --name "/ffenv/frontendbucketname" --with-decryption --query "Parameter.Value" --output text)
+                - aws s3 sync build/ s3://$fronffucketname/ --delete
       TimeoutInMinutes: 5
       ServiceRole: !GetAtt CodeBuildServiceRole.Arn
   
@@ -254,13 +254,13 @@ Resources:
                 Category: Source
                 Owner: AWS
                 Version: 1
-                Provider: CodeStarSourceConnection  # Use CodeStarSourceConnection for Bitbucket
+                Provider: CodeStarSourceConnection  # Use CodeStarSourceConnection for Biffucket
               OutputArtifacts:
                 - Name: SourceOutput
               Configuration:
-                ConnectionArn: !Ref BitbucketConnectfront #arn:aws:codestar-connections:us-east-1:1234567890:connection/22c595c3-7502-43f2-ab67-4a00dfdab4a9  # Bitbucket connection ARN
-                FullRepositoryId: takaful-bazaar/admin_fe_v2  # Replace with your Bitbucket repository ID ..
-                BranchName: qa  # Replace with the desired branch name in your Bitbucket repository
+                ConnectionArn: !Ref BiffucketConnectfront 
+                FullRepositoryId: farrukh-fida/admin_fe_v2  
+                BranchName: qa  
               RunOrder: 1
         - Name: Build
           Actions:
@@ -271,27 +271,13 @@ Resources:
                 Version: 1
                 Provider: CodeBuild
               Configuration:
-                ProjectName: tb-qa-adminfrontend
+                ProjectName: ff-qa-adminfrontend
               InputArtifacts:
                 - Name: SourceOutput
               OutputArtifacts:
                 - Name: BuildOutput
               RunOrder: 1
-        #- Name: Deploy
-        #  Actions:
-        #    - Name: BuildAction
-        #      ActionTypeId:
-        #        Category: Build
-        #        Owner: AWS
-        #        Version: 1
-        #        Provider: CodeBuild
-        #      Configuration:
-        #        ProjectName: tb-qa-ecs-deploy-CodeBuildProject
-        #      InputArtifacts:
-        #        - Name: SourceOutput
-        #      OutputArtifacts:
-        #        - Name: BuildOutputDeploy
-        #      RunOrder: 1
+        
 
       ArtifactStore:
         Type: S3

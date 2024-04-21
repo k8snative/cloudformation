@@ -5,7 +5,7 @@ Parameters:
 
   LoadBalancerName:
     Type: String
-    Default: tbqa-us-east-1-lb
+    Default: ffqa-us-east-1-lb
     Description: Name for the ALB (Application Load Balancer)
 Resources:
     
@@ -14,9 +14,9 @@ Resources:
     Properties:
       Name: !Ref LoadBalancerName
       Subnets:
-        - !Select [1, !Split [",", !ImportValue TB-qa-PublicSubnetIds]] # Replace with your public subnet ID
-        - !Select [0, !Split [",", !ImportValue TB-qa-PublicSubnetIds]]
-        - !Select [2, !Split [",", !ImportValue TB-qa-PublicSubnetIds]]
+        - !Select [1, !Split [",", !ImportValue ff-qa-PublicSubnetIds]] 
+        - !Select [0, !Split [",", !ImportValue ff-qa-PublicSubnetIds]]
+        - !Select [2, !Split [",", !ImportValue ff-qa-PublicSubnetIds]]
         
       SecurityGroups:
         - !Ref ECSSecurityGroup
@@ -24,7 +24,7 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: "Security group for ECS Fargate tasks when creating ALB"
-      VpcId: !ImportValue TB-qa-VPCId  # Replace with your VPC ID
+      VpcId: !ImportValue ff-qa-VPCId  
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 0

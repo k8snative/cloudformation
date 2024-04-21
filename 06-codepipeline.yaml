@@ -1,8 +1,8 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Parameters:
-  BitbucketConnect:
+  BiffucketConnect:
     Type: String
-    Description: Enter Bitbucket connection ARN
+    Description: Enter Biffucket connection ARN
     Default: 'arn:aws:codestar-connections:us-east-1:1234567890:connection/22c595c3-7502-43f2-ab67-4a00dfdab4a9'
 
 Resources:
@@ -150,7 +150,7 @@ Resources:
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AWSCodePipeline_FullAccess
-        - arn:aws:iam::1234567890:policy/service-role/AWSCodePipelineServiceRole-ap-southeast-1-tb-aws-bitbucket-test
+        - arn:aws:iam::1234567890:policy/service-role/AWSCodePipelineServiceRole-ap-southeast-1-ff-aws-biffucket-test
       Path: /
 
   CodeBuildProject:
@@ -173,19 +173,19 @@ Resources:
               commands:
                 - echo Logging in to Amazon ECR....
                 - aws --version
-                - ecrvalue=$(aws ssm get-parameter --region $AWS_REGION --name "/tbenv/ecrqa" --with-decryption --query "Parameter.Value" --output text)
+                - ecrvalue=$(aws ssm get-parameter --region $AWS_REGION --name "/ffenv/ecrqa" --with-decryption --query "Parameter.Value" --output text)
                 - echo '{$ecrvalue}'      
                 - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ecrvalue
                 - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
                 - IMAGE_TAG=${COMMIT_HASH:=latest}     
                 - echo "Writing environment variables to .env file..."       
                 - |
-                  aws ssm get-parameters-by-path --region $AWS_REGION --path "/tb/qa" --with-decryption --query "Parameters[].{Name: Name, Value: Value}" --output json > parameters.json
+                  aws ssm get-parameters-by-path --region $AWS_REGION --path "/ff/qa" --with-decryption --query "Parameters[].{Name: Name, Value: Value}" --output json > parameters.json
                 - cat parameters.json
                 - echo "Formatting parameters and writing to .env file..."
                 - cat parameters.json | jq -r '.[] | "\(.Name[7:])=\(.Value)"' > .env
                 - |
-                  aws secretsmanager --region $AWS_REGION get-secret-value --secret-id "TbqaRDSsecret" --query "SecretString" --output text > secrets.txt
+                  aws secretsmanager --region $AWS_REGION get-secret-value --secret-id "ffqaRDSsecret" --query "SecretString" --output text > secrets.txt
                 - sed -i 's/"username"/"DB_USER"/g; s/"password"/"DB_PASSWORD"/g' secrets.txt
                 - jq -r 'to_entries[] | "\(.key) = \(.value)"' < secrets.txt >> .env
                 - cat .env
@@ -216,7 +216,7 @@ Resources:
   CodeBuildProjectDeploy:
     Type: AWS::CodeBuild::Project
     Properties:
-      Name: tb-ecs-deploy-CodeBuildProject
+      Name: ff-ecs-deploy-CodeBuildProject
       Artifacts:
         Type: CODEPIPELINE
       Environment:
@@ -237,9 +237,9 @@ Resources:
                 - echo Deploying on ECS                
             post_build:
               commands:
-                - ecsclustername=$(aws ssm get-parameter --region $AWS_REGION --name "/tbenv/clustername" --with-decryption --query "Parameter.Value" --output text)
-                - ecsservname=$(aws ssm get-parameter --region $AWS_REGION --name "/tbenv/ecsservicename" --with-decryption --query "Parameter.Value" --output text)
-                - ecstaskdef=$(aws ssm get-parameter --region $AWS_REGION --name "/tbenv/ecstask" --with-decryption --query "Parameter.Value" --output text)
+                - ecsclustername=$(aws ssm get-parameter --region $AWS_REGION --name "/ffenv/clustername" --with-decryption --query "Parameter.Value" --output text)
+                - ecsservname=$(aws ssm get-parameter --region $AWS_REGION --name "/ffenv/ecsservicename" --with-decryption --query "Parameter.Value" --output text)
+                - ecstaskdef=$(aws ssm get-parameter --region $AWS_REGION --name "/ffenv/ecstask" --with-decryption --query "Parameter.Value" --output text)
                 - aws ecs update-service --cluster $ecsclustername --service $ecsservname --task-definition $ecstaskdef --force-new-deployment          
       TimeoutInMinutes: 5
       ServiceRole: !GetAtt CodeBuildServiceRole.Arn
@@ -274,7 +274,7 @@ Resources:
                   - logs:CreateLogGroup
                   - logs:CreateLogStream
                   - logs:PutLogEvents
-                Resource: !Sub arn:aws:logs:${AWS::Region}:329905732051:*
+                Resource: !Sub arn:aws:logs:${AWS::Region}:1234567890:*
         - PolicyName: ECSDeployUpdate
           PolicyDocument:
             Version: '2012-10-17'
@@ -283,7 +283,7 @@ Resources:
                 Action:
                   - ecs:UpdateService
                   - iam:PassRole
-                Resource: !Sub arn:aws:logs:${AWS::Region}:329905732051:*
+                Resource: !Sub arn:aws:logs:${AWS::Region}:1234567890:*
         - PolicyName: KMSDecryptionPermissions
           PolicyDocument:
             Version: '2012-10-17'
@@ -308,13 +308,13 @@ Resources:
                 Category: Source
                 Owner: AWS
                 Version: 1
-                Provider: CodeStarSourceConnection  # Use CodeStarSourceConnection for Bitbucket
+                Provider: CodeStarSourceConnection  # Use CodeStarSourceConnection for git
               OutputArtifacts:
                 - Name: SourceOutput
               Configuration:
-                ConnectionArn: !Ref BitbucketConnect #arn:aws:codestar-connections:us-east-1:329905732051:connection/22c595c3-7502-43f2-ab67-4a00dfdab4a9  # Bitbucket connection ARN
-                FullRepositoryId: takaful-bazaar/backend_v2  # Replace with your Bitbucket repository ID ..
-                BranchName: qa  # Replace with the desired branch name in your Bitbucket repository
+                ConnectionArn: !Ref BiffucketConnect 
+                FullRepositoryId: repository-name/backend  
+                BranchName: qa  
               RunOrder: 1
         - Name: Build
           Actions:
@@ -340,7 +340,7 @@ Resources:
                 Version: 1
                 Provider: CodeBuild
               Configuration:
-                ProjectName: tb-ecs-deploy-CodeBuildProject
+                ProjectName: ff-ecs-deploy-CodeBuildProject
               InputArtifacts:
                 - Name: SourceOutput
               OutputArtifacts:
@@ -350,9 +350,9 @@ Resources:
       ArtifactStore:
         Type: S3
         Location:
-          Ref: ArtifactStoreBucket  # Use the newly created S3 bucket as the artifact store
+          Ref: ArtifactStoreBucket  
         EncryptionKey:
-          Id: !Ref KMSKey  # Use the newly created KMS CMK for artifact encryption
+          Id: !Ref KMSKey  
           Type: KMS
       Tags:
         - Key: Project

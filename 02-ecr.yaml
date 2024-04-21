@@ -1,42 +1,42 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: CloudFormation template to create an Amazon ECR repository
 Parameters:
-  TbEcrRepo:
+  ffEcrRepo:
     Type: String
     Description: Enter a name for the ECR Repository
-    Default: 'backend_v2_qa'
+    Default: 'backend_branch'
 
 Resources:
-  TbECRqa:
+  ffECRqa:
     Type: AWS::ECR::Repository
     Properties:
-      RepositoryName: !Ref TbEcrRepo
+      RepositoryName: !Ref ffEcrRepo
   MySSMParameter:
     Type: 'AWS::SSM::Parameter'
     Properties:
-      Name: /tbenv/ecrqa              # Specify the parameter name
-      Description: My parameter value   # Optional: Add a description
-      Type: String                      # Specify the parameter type (String, SecureString, or StringList)
-      Value: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${TbECRqa}"           # Specify the parameter value
+      Name: /ffenv/ecrqa              
+      Description: My parameter value   
+      Type: String                      #
+      Value: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ffECRqa}"           
   MyRegionMParameter:
     Type: 'AWS::SSM::Parameter'
     Properties:
-      Name: /tbenv/region              # Specify the parameter name
-      Description: My parameter value   # Optional: Add a description
-      Type: String                      # Specify the parameter type (String, SecureString, or StringList)
+      Name: /ffenv/region              
+      Description: My parameter value   
+      Type: String                      
       Value: !Sub "${AWS::Region}" 
   
   
 
 Outputs:
-  TbECRqaName:
+  ffECRqaName:
     Description: The name of the ECR repository created
-    Value: !Ref TbECRqa
+    Value: !Ref ffECRqa
     Export:
-      Name: TbECRqaName
-  TbECRqaUri:
+      Name: ffECRqaName
+  ffECRqaUri:
     Description: The URI of the ECR repository created
-    Value: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${TbECRqa}:latest"
+    Value: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ffECRqa}:latest"
     Export:
-      Name: TbECRqaUri
+      Name: ffECRqaUri
   

@@ -4,27 +4,27 @@ Parameters:
   # The bucket name must be the same as the CNAME
   BucketName:
     Type: String
-    Default: tbqa
+    Default: ffqa
   CertificateACM:
     Type: String
-    Default: arn:aws:acm:us-east-1:1234567890:certificate/7ea2f12f-76c9-4190-92ee-f61a69894c1a
+    Default: arn:aws:acm:us-east-1:1234567890:certificate/7ea2f12f-76c9-4190-92ee-f51t9894c1a
   CustomDomain:
     Type: String
-    Default: tbqa.takafulbazaar.com.pk
+    Default: ffqa.farrukhfida.com
     Description: The custom domain name to be used as a CNAME for the CloudFront distribution
   Hostedzone:
     Type: String
-    Default: ZXCVBHYT00539813
+    Default: ZXBGGHYT00539819
     Description: The Hosted zone ID in which CNAME will be created
   
 Resources:
   BucketnameSSMParameter:
     Type: 'AWS::SSM::Parameter'
     Properties:
-      Name: /tbenv/frontendbucketname              # Specify the parameter name
-      Description: My parameter value   # Optional: Add a description
-      Type: String                      # Specify the parameter type (String, SecureString, or StringList)
-      Value: !Ref BucketName           # Specify the parameter value
+      Name: /ffenv/frontendbucketname              
+      Description: My parameter value   
+      Type: String                      
+      Value: !Ref BucketName           
   S3Bucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -37,10 +37,8 @@ Resources:
         RestrictPublicBuckets: false
       WebsiteConfiguration:
         IndexDocument: index.html
-        ErrorDocument: error.html
-    # don't delete bucket when deleting the stack
-    #DeletionPolicy: Retain
-    #UpdateReplacePolicy: Retain
+        ErrorDocument: index.html
+    
   S3CustomResource:
     Type: Custom::S3CustomResource
     Properties:
@@ -194,7 +192,7 @@ Resources:
             ResponsePagePath: /index.html
             ErrorCachingMinTTL: 0
   
-  ####################################
+  
   DnsRecordForCNAME:
     Type: AWS::Route53::RecordSet
     Properties:
